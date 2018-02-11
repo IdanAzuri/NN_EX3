@@ -4,6 +4,8 @@ from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.decomposition import RandomizedPCA
+from sklearn.manifold import TSNE
 import tensorflow as tf
 # Import MNIST data
 from tensorflow.examples.tutorials.mnist import input_data
@@ -145,11 +147,13 @@ def deep_autoencoder_tensorflow(batch_size=64, learning_rate=1e-2, dropout_prob=
         print("Optimization Finished!")
 
         #### PLOT EMBEDDING ####
-        test_set, _ = mnist.train.next_batch(10000)
+        test_set, _ = mnist.train.next_batch(1000)
         _, test_summary, emb = sess.run([loss, merged_summary_op, embedding],
                                         feed_dict={x: test_set, keep_prob: 1, x_embedding: dummy_x_embedding_input})
-        plot_with_images(emb, test_set, "AUTOENCODER - MNIST", image_num=100)
-        plt.show()
+        X = tsne(emb)
+
+        plot_with_images(X, test_set, "AUTOENCODER - MNIST", image_num=100)
+
 
         # Encode and decode images from test set and visualize their reconstruction
         n = 4
@@ -182,6 +186,14 @@ def deep_autoencoder_tensorflow(batch_size=64, learning_rate=1e-2, dropout_prob=
         plt.imshow(canvas_recon, origin="upper", cmap="gray")
         plt.show()
     return
+
+def tsne(X, k=2,perplexity=100):
+    # tsne = TSNE(n_components=k, init='pca', random_state=0, perplexity=perplexity)
+    # X_tsne = tsne.fit_transform(X)
+    pca = RandomizedPCA(n_components=2)
+    X_transformed = pca.fit_transform(X)
+
+    return X_transformed
 
 
 def plot_with_images(X, images, title="", image_num=25):
