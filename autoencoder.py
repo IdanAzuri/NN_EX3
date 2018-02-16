@@ -231,6 +231,7 @@ def plot_with_images(X, images, title="", image_num=25):
 
     # draw the scatter plot of the embedded data points:
     ax.scatter(X[:, 0], X[:, 1], marker='.', alpha=0.7)
+    plt.savefig("autoencoder_mnist_dim100.jpeg")
     plt.show()
     return fig
 
