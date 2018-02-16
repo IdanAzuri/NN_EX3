@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 import sys
 from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
+mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 
 def plot(samples, D_loss, G_loss, epoch, total):
 
