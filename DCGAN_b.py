@@ -158,13 +158,13 @@ G_solver = tf.train.AdamOptimizer(learning_rate=2e-4, beta1=0.3).minimize(G_loss
 def _multivariate_dist(BATCH_SIZE, n_distributions=10, embedding_dim=100):
     current_dist_states_indices = np.random.randint(0, n_distributions - 1, BATCH_SIZE)
     mean_vec = np.arange(0, 100, n_distributions)
-    cov_mat = np.eye(n_distributions, n_distributions) * np.random.randint(1, 50, n_distributions)  # this is diagonal beacuse we want iid
-    result_vec = np.zeros((BATCH_SIZE,100))
+    cov_mat = np.eye(n_distributions, n_distributions) * np.random.randint(1, 5, n_distributions)  # this is diagonal beacuse we want iid
+    result_vec = np.zeros((BATCH_SIZE, 100))
     for i in range(BATCH_SIZE):
-        result_vec[i] = np.random.multivariate_normal(mean_vec, cov_mat, size=BATCH_SIZE * embedding_dim).reshape(BATCH_SIZE,
+        result_vec[i] = np.random.multivariate_normal(mean_vec, cov_mat, size=BATCH_SIZE * embedding_dim).reshape(embedding_dim,
                                                                                                                   n_distributions,
-                                                                                                                  embedding_dim)[
-            i, current_dist_states_indices[i]]
+                                                                                                                  BATCH_SIZE)[:,
+                        current_dist_states_indices[i], i]
 
     return result_vec
 
