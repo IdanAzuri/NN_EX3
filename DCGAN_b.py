@@ -1,13 +1,15 @@
-import tensorflow as tf
-import numpy as np
-from matplotlib import pyplot as plt
-import matplotlib.gridspec as gridspec
 import sys
+
+import matplotlib.gridspec as gridspec
+import numpy as np
+import tensorflow as tf
+from matplotlib import pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
+
 mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 
-def plot(samples, D_loss, G_loss, epoch, total):
 
+def plot(samples, D_loss, G_loss, epoch, total):
     fig = plt.figure(figsize=(10, 5))
 
     gs = gridspec.GridSpec(4, 8)
@@ -24,7 +26,7 @@ def plot(samples, D_loss, G_loss, epoch, total):
     # Generate images
     for i, sample in enumerate(samples):
 
-        if i > 4* 4 - 1:
+        if i > 4 * 4 - 1:
             break
         ax = plt.subplot(gs[i % 4, int(i / 4)])
         plt.axis('off')
@@ -36,8 +38,8 @@ def plot(samples, D_loss, G_loss, epoch, total):
     plt.savefig('./output/' + str(epoch + 1) + '.png')
     plt.close()
 
-def Conv2d(input, output_dim=64, kernel=(5, 5), strides=(2, 2), stddev=0.2, name='conv_2d'):
 
+def Conv2d(input, output_dim=64, kernel=(5, 5), strides=(2, 2), stddev=0.2, name='conv_2d'):
     with tf.variable_scope(name):
         W = tf.get_variable('Conv2dW', [kernel[0], kernel[1], input.get_shape()[-1], output_dim],
                             initializer=tf.truncated_normal_initializer(stddev=stddev))
@@ -45,8 +47,8 @@ def Conv2d(input, output_dim=64, kernel=(5, 5), strides=(2, 2), stddev=0.2, name
 
     return tf.nn.conv2d(input, W, strides=[1, strides[0], strides[1], 1], padding='SAME') + b
 
-def Deconv2d(input, output_dim, batch_size, kernel=(5, 5), strides=(2, 2), stddev=0.2, name='deconv_2d'):
 
+def Deconv2d(input, output_dim, batch_size, kernel=(5, 5), strides=(2, 2), stddev=0.2, name='deconv_2d'):
     with tf.variable_scope(name):
         W = tf.get_variable('Deconv2dW', [kernel[0], kernel[1], output_dim, input.get_shape()[-1]],
                             initializer=tf.truncated_normal_initializer(stddev=stddev))
@@ -63,10 +65,9 @@ def Deconv2d(input, output_dim, batch_size, kernel=(5, 5), strides=(2, 2), stdde
 
         return deconv + b
 
+
 def Dense(input, output_dim, stddev=0.02, name='dense'):
-
     with tf.variable_scope(name):
-
         shape = input.get_shape()
         W = tf.get_variable('DenseW', [shape[1], output_dim], tf.float32,
                             tf.random_normal_initializer(stddev=stddev))
@@ -75,8 +76,8 @@ def Dense(input, output_dim, stddev=0.02, name='dense'):
 
         return tf.matmul(input, W) + b
 
-def BatchNormalization(input, name='bn'):
 
+def BatchNormalization(input, name='bn'):
     with tf.variable_scope(name):
 
         output_dim = input.get_shape()[-1]
@@ -91,16 +92,16 @@ def BatchNormalization(input, name='bn'):
             mean, var = tf.nn.moments(input, [0, 1, 2])
         return tf.nn.batch_normalization(input, mean, var, beta, gamma, 1e-5)
 
-def LeakyReLU(input, leak=0.2, name='lrelu'):
 
-    return tf.maximum(input, leak*input)
+def LeakyReLU(input, leak=0.2, name='lrelu'):
+    return tf.maximum(input, leak * input)
 
 
 BATCH_SIZE = 64
 EPOCHS = 40
 
-def Discriminator(X, reuse=False, name='d'):
 
+def Discriminator(X, reuse=False, name='d'):
     with tf.variable_scope(name, reuse=reuse):
 
         if len(X.get_shape()) > 2:
@@ -109,23 +110,22 @@ def Discriminator(X, reuse=False, name='d'):
         else:
             D_reshaped = tf.reshape(X, [-1, 28, 28, 1])
             D_conv1 = Conv2d(D_reshaped, output_dim=64, name='D_conv1')
-        D_h1 = LeakyReLU(D_conv1) # [-1, 28, 28, 64]
+        D_h1 = LeakyReLU(D_conv1)  # [-1, 28, 28, 64]
         D_conv2 = Conv2d(D_h1, output_dim=128, name='D_conv2')
-        D_h2 = LeakyReLU(D_conv2) # [-1, 28, 28, 128]
+        D_h2 = LeakyReLU(D_conv2)  # [-1, 28, 28, 128]
         D_r2 = tf.reshape(D_h2, [-1, 256])
-        D_h3 = LeakyReLU(D_r2) # [-1, 256]
+        D_h3 = LeakyReLU(D_r2)  # [-1, 256]
         D_h4 = tf.nn.dropout(D_h3, 0.5)
-        D_h5 = Dense(D_h4, output_dim=1, name='D_h5') # [-1, 1]
+        D_h5 = Dense(D_h4, output_dim=1, name='D_h5')  # [-1, 1]
         return tf.nn.sigmoid(D_h5)
 
+
 def Generator(z, name='g'):
-
     with tf.variable_scope(name):
-
-        G_1 = Dense(z, output_dim=1024, name='G_1') # [-1, 1024]
+        G_1 = Dense(z, output_dim=1024, name='G_1')  # [-1, 1024]
         G_bn1 = BatchNormalization(G_1, name='G_bn1')
         G_h1 = tf.nn.relu(G_bn1)
-        G_2 = Dense(G_h1, output_dim=7*7*128, name='G_2') # [-1, 7*7*128]
+        G_2 = Dense(G_h1, output_dim=7 * 7 * 128, name='G_2')  # [-1, 7*7*128]
         G_bn2 = BatchNormalization(G_2, name='G_bn2')
         G_h2 = tf.nn.relu(G_bn2)
         G_r2 = tf.reshape(G_h2, [-1, 7, 7, 128])
@@ -136,6 +136,7 @@ def Generator(z, name='g'):
         G_r4 = tf.reshape(G_conv4, [-1, 784])
         return tf.nn.sigmoid(G_r4)
 
+
 X = tf.placeholder(tf.float32, shape=[None, 784])
 z = tf.placeholder(tf.float32, shape=[None, 100])
 
@@ -143,8 +144,8 @@ G = Generator(z, 'G')
 D_real = Discriminator(X, False, 'D')
 D_fake = Discriminator(G, True, 'D')
 
-D_loss = -tf.reduce_mean(tf.log(D_real) - tf.log(D_fake)) # Train to judge if the data is real correctly
-G_loss = -tf.reduce_mean(tf.log(D_fake)) # Train to pass the discriminator as real data
+D_loss = -tf.reduce_mean(tf.log(D_real) - tf.log(D_fake))  # Train to judge if the data is real correctly
+G_loss = -tf.reduce_mean(tf.log(D_fake))  # Train to pass the discriminator as real data
 
 vars = tf.trainable_variables()
 d_params = [v for v in vars if v.name.startswith('D/')]
@@ -154,18 +155,21 @@ D_solver = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.1).minimize(D_loss
 G_solver = tf.train.AdamOptimizer(learning_rate=2e-4, beta1=0.3).minimize(G_loss, var_list=g_params)
 
 
-def _multivariate_dist(BATCH_SIZE, n_distributions=10):
-    current_dist_states_indices = np.random.randint(0,n_distributions - 1, BATCH_SIZE)
-    mean_vec= np.arange(0,100,n_distributions)
-    cov_mat= np.eye(n_distributions,n_distributions) * np.random.randint(1,50,n_distributions)#this is diagonal beacuse we want iid
-    result_vec = np.zeros(BATCH_SIZE,)
+def _multivariate_dist(BATCH_SIZE, n_distributions=10, embedding_dim=100):
+    current_dist_states_indices = np.random.randint(0, n_distributions - 1, BATCH_SIZE)
+    mean_vec = np.arange(0, 100, n_distributions)
+    cov_mat = np.eye(n_distributions, n_distributions) * np.random.randint(1, 50, n_distributions)  # this is diagonal beacuse we want iid
+    result_vec = np.zeros((BATCH_SIZE,100))
     for i in range(BATCH_SIZE):
-        result_vec[i] = np.random.multivariate_normal(mean_vec, cov_mat, size=BATCH_SIZE)[i,current_dist_states_indices[i]]
+        result_vec[i] = np.random.multivariate_normal(mean_vec, cov_mat, size=BATCH_SIZE * embedding_dim).reshape(BATCH_SIZE,
+                                                                                                                  n_distributions,
+                                                                                                                  embedding_dim)[
+            i, current_dist_states_indices[i]]
+
     return result_vec
 
 
 with tf.Session() as sess:
-
     sess.run(tf.global_variables_initializer())
 
     D_loss_vals = []
