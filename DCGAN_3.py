@@ -18,7 +18,7 @@ save_to = "autoencoder_model.pkl"
 
 
 # Helper functions
-def weight_variable(shape,name):
+def weight_variable(shape, name):
     """weight_variable generates a weight variable of a given shape."""
     initial = tf.truncated_normal(shape, stddev=0.1, name=name)
     return tf.Variable(initial)
@@ -30,8 +30,6 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 
-
-
 # init_variables try to load from pickle:
 try:
     model = pickle.load(open(save_to, 'rb'))
@@ -39,24 +37,24 @@ try:
     B1 = tf.Variable(tf.constant(model[1]))
     W2 = tf.Variable(tf.constant(model[2]))
     B2 = tf.Variable(tf.constant(model[3]))
-    W1_decoder = tf.Variable(tf.constant(model[4]),name="G_w1_loaded")
-    B1_decoder = tf.Variable(tf.constant(model[5]),name="G_b1_loaded")
-    W2_decoder = tf.Variable(tf.constant(model[6]),name="G_w2_loaded")
-    B2_decoder = tf.Variable(tf.constant(model[7]),name="G_b2_loaded")
+    W1_decoder = tf.Variable(tf.constant(model[4]), name="G_w1_loaded")
+    B1_decoder = tf.Variable(tf.constant(model[5]), name="G_b1_loaded")
+    W2_decoder = tf.Variable(tf.constant(model[6]), name="G_w2_loaded")
+    B2_decoder = tf.Variable(tf.constant(model[7]), name="G_b2_loaded")
     print("model has been loaded from {}".format(save_to))
 except:
     # Model params
     # Encoder
-    W1 = weight_variable([INPUT_SIZE, FC_ENCODER],name="E_w1")
+    W1 = weight_variable([INPUT_SIZE, FC_ENCODER], name="E_w1")
     B1 = bias_variable([FC_ENCODER])
-    W2 = weight_variable([FC_ENCODER, EMBEDDING_DIM],name="E_w2")
+    W2 = weight_variable([FC_ENCODER, EMBEDDING_DIM], name="E_w2")
     B2 = bias_variable([EMBEDDING_DIM])
 
     # Decoder
     with tf.variable_scope("G_decoder"):
-        W1_decoder = weight_variable([EMBEDDING_DIM, FC_DECODER],name="G_w1")
+        W1_decoder = weight_variable([EMBEDDING_DIM, FC_DECODER], name="G_w1")
         B1_decoder = bias_variable([FC_DECODER])
-        W2_decoder = weight_variable([FC_DECODER, INPUT_SIZE],name="G_w2")
+        W2_decoder = weight_variable([FC_DECODER, INPUT_SIZE], name="G_w2")
         B2_decoder = bias_variable([INPUT_SIZE])
 
 
@@ -164,6 +162,9 @@ def BatchNormalization(input, name='bn'):
 def LeakyReLU(input, leak=0.2, name='lrelu'):
     return tf.maximum(input, leak * input)
 
+def binary_cross_entropy(x, z):
+    eps = 1e-12
+    return (-(x * tf.log(z + eps) + (1. - x) * tf.log(1. - z + eps)))
 
 BATCH_SIZE = 64
 EPOCHS = 40
@@ -188,23 +189,6 @@ def Discriminator(X, reuse=False, name='d'):
         return tf.nn.sigmoid(D_h5)
 
 
-def Generator(z, name='g'):
-    with tf.variable_scope(name):
-        G_1 = Dense(z, output_dim=1024, name='G_1')  # [-1, 1024]
-        G_bn1 = BatchNormalization(G_1, name='G_bn1')
-        G_h1 = tf.nn.relu(G_bn1)
-        G_2 = Dense(G_h1, output_dim=7 * 7 * 128, name='G_2')  # [-1, 7*7*128]
-        G_bn2 = BatchNormalization(G_2, name='G_bn2')
-        G_h2 = tf.nn.relu(G_bn2)
-        G_r2 = tf.reshape(G_h2, [-1, 7, 7, 128])
-        G_conv3 = Deconv2d(G_r2, output_dim=64, batch_size=BATCH_SIZE, name='G_conv3')
-        G_bn3 = BatchNormalization(G_conv3, name='G_bn3')
-        G_h3 = tf.nn.relu(G_bn3)
-        G_conv4 = Deconv2d(G_h3, output_dim=1, batch_size=BATCH_SIZE, name='G_conv4')
-        G_r4 = tf.reshape(G_conv4, [-1, 784])
-        return tf.nn.sigmoid(G_r4)
-
-
 X = tf.placeholder(tf.float32, shape=[None, 784])
 z = tf.placeholder(tf.float32, shape=[None, 100])
 # G = Generator(z, 'G')
@@ -212,15 +196,32 @@ G_from_decoder = deep_autoencoder(z)
 D_real = Discriminator(X, False, 'D')
 D_fake = Discriminator(G_from_decoder, True, 'D')
 
-D_loss = -tf.reduce_mean(tf.log(D_real) - tf.log(D_fake))  # Train to judge if the data is real correctly
-G_loss = -tf.reduce_mean(tf.log(D_fake))  # Train to pass the discriminator as real data
+# D_loss = -tf.reduce_mean(tf.log(D_real) - tf.log(D_fake))  # Train to judge if the data is real correctly
+# G_loss = -tf.reduce_mean(tf.log(D_fake))  # Train to pass the discriminator as real data
 
 vars = tf.trainable_variables()
 d_params = [v for v in vars if v.name.startswith('D/')]
 g_params = [v for v in vars if v.name.startswith('G')]
+d_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-6), d_params)
+g_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-6), g_params)
 
-D_solver = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.1).minimize(D_loss, var_list=d_params)
-G_solver = tf.train.AdamOptimizer(learning_rate=2e-4, beta1=0.3).minimize(G_loss, var_list=g_params)
+
+# D_solver = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.1).minimize(D_loss, var_list=d_params)
+# G_solver = tf.train.AdamOptimizer(learning_rate=2e-4, beta1=0.3).minimize(G_loss, var_list=g_params)
+
+
+
+loss_d_real = binary_cross_entropy(tf.ones_like(D_real), D_real)
+loss_d_fake = binary_cross_entropy(tf.zeros_like(D_fake), D_fake)
+G_loss = tf.reduce_mean(binary_cross_entropy(tf.ones_like(D_fake), D_fake))
+D_loss = tf.reduce_mean(0.5 * (loss_d_real + loss_d_fake))
+
+update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+with tf.control_dependencies(update_ops):
+    D_solver = tf.train.RMSPropOptimizer(learning_rate=1e-4).minimize(D_loss + d_reg, var_list=d_params)
+    G_solver = tf.train.RMSPropOptimizer(learning_rate=2e-4).minimize(G_loss + g_reg, var_list=g_params)
+
+
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -233,10 +234,10 @@ with tf.Session() as sess:
 
         for i in range(iteration):
             x, _ = mnist.train.next_batch(BATCH_SIZE)
-            rand = np.random.uniform(0., 1., size=[BATCH_SIZE, 100])
+            rand = np.random.uniform(0., 1., size=[BATCH_SIZE, EMBEDDING_DIM])
             _, D_loss_curr = sess.run([D_solver, D_loss], {X: x, z: rand})
-            rand = np.random.uniform(0., 1., size=[BATCH_SIZE, 100])
-            _, G_loss_curr = sess.run([G_solver, G_loss], {z: rand,})
+            rand = np.random.uniform(0., 1., size=[BATCH_SIZE, EMBEDDING_DIM])
+            _, G_loss_curr = sess.run([G_solver, G_loss], {z: rand})
 
             D_loss_vals.append(D_loss_curr)
             G_loss_vals.append(G_loss_curr)
