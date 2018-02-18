@@ -1,13 +1,14 @@
 from __future__ import division, print_function, absolute_import
 
+import pickle
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.decomposition import RandomizedPCA
-from sklearn.manifold import TSNE
 import tensorflow as tf
+from sklearn.decomposition import RandomizedPCA
 # Import MNIST data
+from sklearn.manifold import TSNE
 from tensorflow.examples.tutorials.mnist import input_data
 
 mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
@@ -18,6 +19,8 @@ INPUT_SIZE = 784
 FC_ENCODER = 256
 EMBEDDING_DIM = 100
 FC_DECODER = 256
+
+save_to = "autoencoder_model.pkl"
 
 
 # Helper functions
@@ -49,7 +52,19 @@ def conv2d_transpose(x):
     return tf.nn.conv2d_transpose(x, filter=32, padding='same', strides=2, name='upsample')
 
 
-def deep_autoencoder(x_input, keep_prob, input_embedding):
+# init_variables try to load from pickle:
+try:
+    model = pickle.load(open(save_to, 'rb'))
+    W1 = tf.Variable(tf.constant(model[0]))
+    B1 = tf.Variable(tf.constant(model[1]))
+    W2 = tf.Variable(tf.constant(model[2]))
+    B2 = tf.Variable(tf.constant(model[3]))
+    W1_decoder = tf.Variable(tf.constant(model[4]))
+    B1_decoder = tf.Variable(tf.constant(model[5]))
+    W2_decoder = tf.Variable(tf.constant(model[6]))
+    B2_decoder = tf.Variable(tf.constant(model[7]))
+    print ("model has been loaded from {}".format(save_to))
+except:
     # Model params
     # Encoder
     W1 = weight_variable([INPUT_SIZE, FC_ENCODER])
@@ -63,97 +78,79 @@ def deep_autoencoder(x_input, keep_prob, input_embedding):
     W2_decoder = weight_variable([FC_DECODER, INPUT_SIZE])
     B2_decoder = bias_variable([INPUT_SIZE])
 
+
+def deep_autoencoder(x_input, keep_prob):
     # The model
     x_input = tf.reshape(x_input, [-1, INPUT_SIZE])
     with tf.name_scope('encoder'):
         # Enocder Hidden layer with relu activation #1
-        layer_1 = tf.nn.relu(tf.matmul(x_input, W1) + B1)
-        with tf.name_scope('dropout'):
-            fc1_drop = tf.nn.dropout(layer_1, keep_prob)
-        encoded = tf.nn.relu(tf.matmul(fc1_drop, W2) + B2)
+        layer_1 = tf.nn.leaky_relu(tf.matmul(x_input, W1) + B1)
+        fc1_drop = tf.nn.dropout(layer_1, keep_prob)
+        encoded = tf.nn.leaky_relu(tf.matmul(fc1_drop, W2) + B2)
 
     with tf.name_scope('decoder'):
         # Decoder Hidden layer with relu activation #1
-        decoder_layer_1 = tf.nn.relu(tf.matmul(encoded, W1_decoder) + B1_decoder)
-        with tf.name_scope('dropout'):
-            decoder_layer_1_drop = tf.nn.dropout(decoder_layer_1, keep_prob)
-        decoded = tf.nn.relu(tf.matmul(decoder_layer_1_drop, W2_decoder) + B2_decoder)
+        decoder_layer_1 = tf.nn.leaky_relu(tf.matmul(encoded, W1_decoder) + B1_decoder)
+        decoder_layer_1_drop = tf.nn.dropout(decoder_layer_1, keep_prob)
+        decoded = tf.nn.leaky_relu(tf.matmul(decoder_layer_1_drop, W2_decoder) + B2_decoder)
 
-    decoder_for_embedding_input = tf.nn.relu(tf.matmul(input_embedding, W1_decoder) + B1_decoder)
-    with tf.name_scope('dropout'):
-        decoded_embedding_input = tf.nn.dropout(decoder_for_embedding_input, keep_prob)
-    decoded_embedding_input = tf.nn.relu(tf.matmul(decoded_embedding_input, W2_decoder) + B2_decoder)
-    return decoded, encoded, decoded_embedding_input
+    return decoded, encoded
 
 
 # The deep model
-def deep_autoencoder_tensorflow(batch_size=64, learning_rate=1e-2, dropout_prob=1., num_steps=10000):
+def deep_autoencoder_tensorflow(batch_size=64, learning_rate=1e-3, dropout_prob=1., num_steps=10000):
     mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logs_path = '/tmp/apml_auto_encoder/{}_dropout_{}_lr_{}_batch_{}'.format(timestamp, dropout_prob, learning_rate,
                                                                              batch_size)
-    g = tf.Graph()
-    with g.as_default():
-        # tf Graph Input
-        x = tf.placeholder(tf.float32, [None, 784], name='x_input')
-        x_embedding = tf.placeholder(tf.float32, [None, EMBEDDING_DIM], name='x_input_embedding')
-        dummy_x_embedding_input = np.zeros((batch_size, EMBEDDING_DIM))
-        keep_prob = tf.placeholder(tf.float32)
 
-        predicted_image, embedding, predicted_image_embedding = deep_autoencoder(x, keep_prob, x_embedding)
+    # tf Graph Input
+    x = tf.placeholder(tf.float32, [None, 784], name='x_input')
+    keep_prob = tf.placeholder(tf.float32)
 
-        loss = tf.reduce_mean(tf.pow(x - predicted_image, 2))
+    predicted_image, embedding = deep_autoencoder(x, keep_prob)
 
-        with tf.name_scope('Optimaizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+    loss = tf.reduce_mean(tf.pow(x - predicted_image, 2))
+    # h = embedding
+    # dh = h * (1 - h)  # N_batch x N_hidden
+    #
+    # # N_batch x N_hidden * N_hidden x 1 = N_batch x 1
+    # contractive_loss = 1e-4 * tf.reduce_sum(dh**2 * tf.reduce_sum(tf.transpose(W2)**2, axis=1), axis=1)
+    # loss = loss + contractive_loss
+    with tf.name_scope('Optimaizer'):
+        optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
-        # Initialize the variables (i.e. assign their default value)
-        init = tf.global_variables_initializer()
+    # Initialize the variables (i.e. assign their default value)
+    init = tf.global_variables_initializer()
 
-        # Create a summary to monitor cost tensor
-        tf.summary.scalar("loss", loss)
 
-        # Merge all summaries into a single op
-        merged_summary_op = tf.summary.merge_all()
+    print("Start trainig, log_path {}".format(logs_path))
+    # Start training
+    sess = tf.Session()
+    with sess.as_default():
+        sess.run(init)
 
-        print("Start trainig, log_path {}".format(logs_path))
-        # Start training
-        sess = tf.Session()
-        with sess.as_default():
-            sess.run(init)
-            train_writer = tf.summary.FileWriter(logs_path + r"/train", graph=tf.get_default_graph())
-            test_writer = tf.summary.FileWriter(logs_path + r"/test", graph=tf.get_default_graph())
 
-            for i in range(num_steps):
-                batch_xs, _ = mnist.train.next_batch(batch_size)
-                # Run optimization op (backprop), cost op (to get loss value)
-                # and summary nodes
-                if i % 200 == 0:
-                    _, _, train_summary = sess.run([optimizer, loss, merged_summary_op],
-                                                   feed_dict={x: batch_xs, keep_prob: dropout_prob,
-                                                              x_embedding: dummy_x_embedding_input})
-                    train_writer.add_summary(train_summary, i)
-                if i % 500 == 0:
-                    test_batch, _ = mnist.train.next_batch(batch_size)
-                    cost, test_summary = sess.run([loss, merged_summary_op],
-                                                  feed_dict={x: test_batch, keep_prob: 1,
-                                                             x_embedding: dummy_x_embedding_input})
-                    test_writer.add_summary(test_summary, i)
-                    print("iter{}: cost:{}".format(i, cost))
-                else:
-                    optimizer.run(
-                        feed_dict={x: batch_xs, keep_prob: dropout_prob, x_embedding: dummy_x_embedding_input})
+        for i in range(num_steps):
+            batch_xs, _ = mnist.train.next_batch(batch_size)
+            optimizer.run(
+                feed_dict={x: batch_xs, keep_prob: dropout_prob})
 
         print("Optimization Finished!")
 
+        # Save the model for a pickle
+        pickle.dump([sess.run(W1), sess.run(B1),
+                     sess.run(W2), sess.run(B2),
+                     sess.run(W1_decoder), sess.run(B1_decoder),
+                     sess.run(W2_decoder), sess.run(B2_decoder)], open(save_to, 'wb'))
+
         #### PLOT EMBEDDING ####
-        test_set, _ = mnist.train.next_batch(1000)
-        _, test_summary, emb = sess.run([loss, merged_summary_op, embedding],
-                                        feed_dict={x: test_set, keep_prob: 1, x_embedding: dummy_x_embedding_input})
+        test_set, _ = mnist.test.next_batch(1000)
+        loss, emb = sess.run([loss, embedding],feed_dict={x: test_set, keep_prob: 1})
+        print ("loss={}".format(loss))
         X = tsne(emb)
 
         plot_with_images(X, test_set, "AUTOENCODER - MNIST", image_num=100)
-
 
         # Encode and decode images from test set and visualize their reconstruction
         n = 4
@@ -164,7 +161,7 @@ def deep_autoencoder_tensorflow(batch_size=64, learning_rate=1e-2, dropout_prob=
             batch_x, _ = mnist.test.next_batch(n)
             # Encode and decode the digit image
             reconstruction = sess.run(predicted_image,
-                                      feed_dict={x: batch_x, keep_prob: 1., x_embedding: dummy_x_embedding_input})
+                                      feed_dict={x: batch_x, keep_prob: 1.})
 
             # Display original images
             for j in range(n):
@@ -187,11 +184,12 @@ def deep_autoencoder_tensorflow(batch_size=64, learning_rate=1e-2, dropout_prob=
         plt.show()
     return
 
-def tsne(X, k=2,perplexity=100):
-    # tsne = TSNE(n_components=k, init='pca', random_state=0, perplexity=perplexity)
-    # X_tsne = tsne.fit_transform(X)
-    pca = RandomizedPCA(n_components=2)
-    X_transformed = pca.fit_transform(X)
+
+def tsne(X, k=2, perplexity=100):
+    tsne = TSNE(n_components=k, init='pca', random_state=0, perplexity=perplexity)
+    X_transformed = tsne.fit_transform(X)
+    # pca = RandomizedPCA(n_components=2)
+    # X_transformed = pca.fit_transform(X)
 
     return X_transformed
 
@@ -238,4 +236,4 @@ def plot_with_images(X, images, title="", image_num=25):
 
 if __name__ == '__main__':
     # test_set, _ = mnist.train.next_batch(10000)
-    deep_autoencoder_tensorflow(dropout_prob=1.)
+    deep_autoencoder_tensorflow(dropout_prob=.9)
