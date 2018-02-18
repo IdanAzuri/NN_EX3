@@ -33,10 +33,7 @@ def bias_variable(shape):
 # init_variables try to load from pickle:
 try:
     model = pickle.load(open(save_to, 'rb'))
-    W1 = tf.Variable(tf.constant(model[0]))
-    B1 = tf.Variable(tf.constant(model[1]))
-    W2 = tf.Variable(tf.constant(model[2]))
-    B2 = tf.Variable(tf.constant(model[3]))
+
     W1_decoder = tf.Variable(tf.constant(model[4]), name="G_w1_loaded")
     B1_decoder = tf.Variable(tf.constant(model[5]), name="G_b1_loaded")
     W2_decoder = tf.Variable(tf.constant(model[6]), name="G_w2_loaded")
@@ -44,12 +41,6 @@ try:
     print("model has been loaded from {}".format(save_to))
 except:
     # Model params
-    # Encoder
-    W1 = weight_variable([INPUT_SIZE, FC_ENCODER], name="E_w1")
-    B1 = bias_variable([FC_ENCODER])
-    W2 = weight_variable([FC_ENCODER, EMBEDDING_DIM], name="E_w2")
-    B2 = bias_variable([EMBEDDING_DIM])
-
     # Decoder
     with tf.variable_scope("G_decoder"):
         W1_decoder = weight_variable([EMBEDDING_DIM, FC_DECODER], name="G_w1")
@@ -59,14 +50,6 @@ except:
 
 
 def deep_autoencoder(embedding):
-    # The model
-    # x_input = tf.reshape(x_input, [-1, INPUT_SIZE])
-    # with tf.name_scope('encoder'):
-    #     # Enocder Hidden layer with relu activation #1
-    #     layer_1 = tf.nn.leaky_relu(tf.matmul(x_input, W1) + B1)
-    #     fc1_drop = tf.nn.dropout(layer_1, keep_prob)
-    #     encoded = tf.nn.leaky_relu(tf.matmul(fc1_drop, W2) + B2)
-
     with tf.name_scope('decoder'):
         # Decoder Hidden layer with relu activation #1
         decoder_layer_1 = tf.nn.leaky_relu(tf.matmul(embedding, W1_decoder) + B1_decoder)
@@ -202,8 +185,8 @@ D_fake = Discriminator(G_from_decoder, True, 'D')
 vars = tf.trainable_variables()
 d_params = [v for v in vars if v.name.startswith('D/')]
 g_params = [v for v in vars if v.name.startswith('G')]
-d_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-6), d_params)
-g_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-6), g_params)
+d_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-5), d_params)
+g_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-5), g_params)
 
 
 # D_solver = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.1).minimize(D_loss, var_list=d_params)
@@ -218,8 +201,8 @@ D_loss = tf.reduce_mean(0.5 * (loss_d_real + loss_d_fake))
 
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
-    D_solver = tf.train.RMSPropOptimizer(learning_rate=1e-4).minimize(D_loss + d_reg, var_list=d_params)
-    G_solver = tf.train.RMSPropOptimizer(learning_rate=2e-4).minimize(G_loss + g_reg, var_list=g_params)
+    D_solver = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(D_loss + d_reg, var_list=d_params)
+    G_solver = tf.train.AdamOptimizer(learning_rate=3e-4).minimize(G_loss + g_reg, var_list=g_params)
 
 
 
