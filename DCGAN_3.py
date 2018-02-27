@@ -4,6 +4,8 @@ import sys
 import matplotlib.gridspec as gridspec
 import numpy as np
 import tensorflow as tf
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -52,8 +54,8 @@ except:
 def deep_autoencoder(embedding):
     with tf.name_scope('decoder'):
         # Decoder Hidden layer with relu activation #1
-        decoder_layer_1 = tf.nn.leaky_relu(tf.matmul(embedding, W1_decoder) + B1_decoder)
-        decoded = tf.nn.leaky_relu(tf.matmul(decoder_layer_1, W2_decoder) + B2_decoder)
+        decoder_layer_1 = tf.nn.relu(tf.matmul(embedding, W1_decoder) + B1_decoder)
+        decoded = tf.nn.relu(tf.matmul(decoder_layer_1, W2_decoder) + B2_decoder)
 
     return decoded
 
@@ -179,8 +181,8 @@ G_from_decoder = deep_autoencoder(z)
 D_real = Discriminator(X, False, 'D')
 D_fake = Discriminator(G_from_decoder, True, 'D')
 
-# D_loss = -tf.reduce_mean(tf.log(D_real) - tf.log(D_fake))  # Train to judge if the data is real correctly
-# G_loss = -tf.reduce_mean(tf.log(D_fake))  # Train to pass the discriminator as real data
+D_loss = -tf.reduce_mean(tf.log(D_real) - tf.log(D_fake))  # Train to judge if the data is real correctly
+G_loss = -tf.reduce_mean(tf.log(D_fake))  # Train to pass the discriminator as real data
 
 vars = tf.trainable_variables()
 d_params = [v for v in vars if v.name.startswith('D/')]
@@ -189,20 +191,20 @@ d_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(
 g_reg = tf.contrib.layers.apply_regularization(tf.contrib.layers.l2_regularizer(1e-5), g_params)
 
 
-# D_solver = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.1).minimize(D_loss, var_list=d_params)
-# G_solver = tf.train.AdamOptimizer(learning_rate=2e-4, beta1=0.3).minimize(G_loss, var_list=g_params)
+D_solver = tf.train.AdamOptimizer(learning_rate=1e-4, beta1=0.1).minimize(D_loss, var_list=d_params)
+G_solver = tf.train.AdamOptimizer(learning_rate=2e-4, beta1=0.3).minimize(G_loss, var_list=g_params)
 
 
 
-loss_d_real = binary_cross_entropy(tf.ones_like(D_real), D_real)
-loss_d_fake = binary_cross_entropy(tf.zeros_like(D_fake), D_fake)
-G_loss = tf.reduce_mean(binary_cross_entropy(tf.ones_like(D_fake), D_fake))
-D_loss = tf.reduce_mean(0.5 * (loss_d_real + loss_d_fake))
+# loss_d_real = binary_cross_entropy(tf.ones_like(D_real), D_real)
+# loss_d_fake = binary_cross_entropy(tf.zeros_like(D_fake), D_fake)
+# G_loss = tf.reduce_mean(binary_cross_entropy(tf.ones_like(D_fake), D_fake))
+# D_loss = tf.reduce_mean(0.5 * (loss_d_real + loss_d_fake))
 
-update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-with tf.control_dependencies(update_ops):
-    D_solver = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(D_loss + d_reg, var_list=d_params)
-    G_solver = tf.train.AdamOptimizer(learning_rate=3e-4).minimize(G_loss + g_reg, var_list=g_params)
+# update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+# with tf.control_dependencies(update_ops):
+#     D_solver = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(D_loss + d_reg, var_list=d_params)
+#     G_solver = tf.train.AdamOptimizer(learning_rate=2e-4).minimize(G_loss + g_reg, var_list=g_params)
 
 
 

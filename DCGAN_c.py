@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 import sys
@@ -72,15 +74,15 @@ def deep_autoencoder(x_input, keep_prob):
     x_input = tf.reshape(x_input, [-1, INPUT_SIZE])
     with tf.name_scope('encoder'):
         # Enocder Hidden layer with relu activation #1
-        layer_1 = tf.nn.leaky_relu(tf.matmul(x_input, W1) + B1)
+        layer_1 = tf.nn.relu(tf.matmul(x_input, W1) + B1)
         fc1_drop = tf.nn.dropout(layer_1, keep_prob)
-        encoded = tf.nn.leaky_relu(tf.matmul(fc1_drop, W2) + B2)
+        encoded = tf.nn.relu(tf.matmul(fc1_drop, W2) + B2)
 
     with tf.name_scope('decoder'):
         # Decoder Hidden layer with relu activation #1
-        decoder_layer_1 = tf.nn.leaky_relu(tf.matmul(encoded, W1_decoder) + B1_decoder)
+        decoder_layer_1 = tf.nn.relu(tf.matmul(encoded, W1_decoder) + B1_decoder)
         decoder_layer_1_drop = tf.nn.dropout(decoder_layer_1, keep_prob)
-        decoded = tf.nn.leaky_relu(tf.matmul(decoder_layer_1_drop, W2_decoder) + B2_decoder)
+        decoded = tf.nn.relu(tf.matmul(decoder_layer_1_drop, W2_decoder) + B2_decoder)
 
     return decoded, encoded
 

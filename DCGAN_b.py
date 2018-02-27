@@ -1,8 +1,11 @@
 import sys
 
+import matplotlib
 import matplotlib.gridspec as gridspec
 import numpy as np
 import tensorflow as tf
+
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 
